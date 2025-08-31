@@ -36,7 +36,7 @@ SOFTWARE.
 #define CAT_WRITE_STATE_MAIN_BUFFER (1U)
 #define CAT_WRITE_STATE_AFTER (2U)
 
-LOG_MODULE_REGISTER(cat_module, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(cat_module, LOG_LEVEL_DBG);
 
 static inline char* get_atcmd_buf(struct cat_object *self)
 {
@@ -286,7 +286,7 @@ cat_status cat_is_unsolicited_event_buffered(struct cat_object *self, struct cat
 static const char *get_new_line_chars(struct cat_object *self)
 {
         static const char *crlf = "\r\n";
-        return &crlf[(self->cr_flag != false) ? 0 : 1];
+        return crlf;
 }
 
 static void start_flush_io_buffer(struct cat_object *self, cat_state state_after)
@@ -418,6 +418,8 @@ static int read_cmd_char(struct cat_object *self)
         if (self->state != CAT_STATE_PARSE_COMMAND_ARGS)
                 self->current_char = to_upper(self->current_char);
 
+        if(self->current_char == '\r' || self->current_char == '\0')
+                self->current_char = '\n';
         return 1;
 }
 
@@ -507,11 +509,10 @@ static cat_status error_state(struct cat_object *self)
                 return CAT_STATUS_OK;
 
         switch (self->current_char) {
+        case '\r':
+                self->cr_flag = true;       
         case '\n':
                 ack_error(self);
-                break;
-        case '\r':
-                self->cr_flag = true;
                 break;
         default:
                 break;
@@ -545,13 +546,12 @@ static cat_status parse_prefix(struct cat_object *self)
                 prepare_parse_command(self);
                 self->state = CAT_STATE_PARSE_COMMAND_CHAR;
                 break;
-        case '\n':
-                LOG_INF("Get newline");
-                ack_error(self);
-                break;
         case '\r':
-                LOG_INF("Get CR");
+                LOG_DBG("Get CR");
                 self->cr_flag = true;
+        case '\n':
+                LOG_DBG("Get newline");
+                ack_error(self);
                 break;
         default:
                 self->state = CAT_STATE_ERROR;
@@ -709,6 +709,8 @@ static cat_status parse_command(struct cat_object *self)
                 return CAT_STATUS_OK;
 
         switch (self->current_char) {
+        case '\r':
+                self->cr_flag = true;
         case '\n':
                 if (self->length != 0) {
                         prepare_search_command(self);
@@ -716,9 +718,6 @@ static cat_status parse_command(struct cat_object *self)
                         break;
                 }
                 ack_ok(self);
-                break;
-        case '\r':
-                self->cr_flag = true;
                 break;
         case '?':
                 if (self->length == 0) {
@@ -733,6 +732,7 @@ static cat_status parse_command(struct cat_object *self)
                         self->state = CAT_STATE_ERROR;
                         break;
                 }
+                LOG_DBG("Find =");
                 self->cmd_type = CAT_CMD_TYPE_WRITE;
                 prepare_search_command(self);
                 self->state = CAT_STATE_SEARCH_COMMAND;
@@ -786,7 +786,10 @@ static uint8_t get_cmd_state(struct cat_object *self, size_t i)
         assert(i < self->commands_num);
 
         if (is_command_disable(self, i) != false)
+        {
+                LOG_DBG("CAT_STATE_SEARCH_COMMAND");
                 return CAT_CMD_STATE_NOT_MATCH;
+        }
 
         s = get_atcmd_buf(self)[i >> 2];
         s >>= (i % 4) << 1;
@@ -856,12 +859,11 @@ static cat_status wait_read_acknowledge(struct cat_object *self)
                 return CAT_STATUS_OK;
 
         switch (self->current_char) {
+        case '\r':
+                self->cr_flag = true;
         case '\n':
                 prepare_search_command(self);
                 self->state = CAT_STATE_SEARCH_COMMAND;
-                break;
-        case '\r':
-                self->cr_flag = true;
                 break;
         default:
                 self->state = CAT_STATE_ERROR;
@@ -921,11 +923,10 @@ static cat_status wait_test_acknowledge(struct cat_object *self)
                 return CAT_STATUS_OK;
 
         switch (self->current_char) {
-        case '\n':
-                start_processing_format_test_args(self, CAT_FSM_TYPE_ATCMD);
-                break;
         case '\r':
                 self->cr_flag = true;
+        case '\n':
+                start_processing_format_test_args(self, CAT_FSM_TYPE_ATCMD);
                 break;
         default:
                 self->state = CAT_STATE_ERROR;
@@ -1887,6 +1888,8 @@ static cat_status parse_command_args(struct cat_object *self)
                 return CAT_STATUS_OK;
 
         switch (self->current_char) {
+        case '\r':
+                self->cr_flag = true;
         case '\n':
                 if (self->cmd->only_test != false) {
                         ack_error(self);
@@ -1905,9 +1908,6 @@ static cat_status parse_command_args(struct cat_object *self)
                 }
                 self->index = 0;
                 self->state = CAT_STATE_WRITE_LOOP;
-                break;
-        case '\r':
-                self->cr_flag = true;
                 break;
         default:
                 if ((self->length == 0) && (self->current_char == '?')) {
@@ -2598,11 +2598,11 @@ cat_status cat_service(struct cat_object *self)
                 s = process_idle_state(self);
                 break;
         case CAT_STATE_PARSE_PREFIX:
-                LOG_INF("CAT_STATE_PARSE_PREFIX");        
+                LOG_DBG("CAT_STATE_PARSE_PREFIX");        
                 s = parse_prefix(self);
                 break;
         case CAT_STATE_PARSE_COMMAND_CHAR:
-                //LOG_INF("CAT_STATE_PARSE_COMMAND_CHAR");
+                LOG_DBG("CAT_STATE_PARSE_COMMAND_CHAR");
                 s = parse_command(self);
                 break;
         case CAT_STATE_UPDATE_COMMAND_STATE:
@@ -2612,7 +2612,7 @@ cat_status cat_service(struct cat_object *self)
                 s = wait_read_acknowledge(self);
                 break;
         case CAT_STATE_SEARCH_COMMAND:
-                LOG_INF("CAT_STATE_SEARCH_COMMAND");  
+                LOG_DBG("CAT_STATE_SEARCH_COMMAND");  
                 s = search_command(self);
                 break;
         case CAT_STATE_COMMAND_FOUND:

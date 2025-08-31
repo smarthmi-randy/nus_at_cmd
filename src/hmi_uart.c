@@ -3,7 +3,7 @@
 #include <zephyr/sys/ring_buffer.h>
 
 // 註冊日誌模組
-LOG_MODULE_REGISTER(hmi_uart_module, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(hmi_uart_module, LOG_LEVEL_INF);
 
 // 靜態函數聲明
 static void hmi_uart_callback_internal(const struct device *dev, struct uart_event *evt, void *user_data);
@@ -21,30 +21,11 @@ static void hmi_uart_callback_internal(const struct device *dev, struct uart_eve
 
     switch (evt->type) {
         case UART_RX_RDY: {
-            //接收完成的事件，在這邊處理接收資料以及傳送msgq到Application的邏輯
-            //LOG_INF("%s: UART_RX_RDY:%X,%u", dev->name, data->rx_buf[data->rx_buf_pos], data->rx_buf_pos);
-            if (data->rx_buf[data->rx_buf_pos] == '\n' || data->rx_buf[data->rx_buf_pos] == '\r' || data->rx_buf[data->rx_buf_pos] == '\0')
-            {
-                data->rx_buf[data->rx_buf_pos + 1] = '\0';
-                if(ring_buf_put(data->rx_rbuf, data->rx_buf, data->rx_buf_pos + 1) == 0) {
-                    LOG_WRN("%s: Failed to put %d\n", data->dev->name, data->rx_buf_pos);
-                }else
-                {
-                    LOG_INF("%s: put %d\n", data->dev->name, data->rx_buf_pos);
-                }
-                data->rx_buf_pos = 0;
-                //LOG_INF("%s: UART_RX_RDY:Get newline or return:%s", dev->name, data->rx_buf);
-                break;
+            LOG_HEXDUMP_DBG(&evt->data.rx.buf[evt->data.rx.offset], evt->data.rx.len, "Put:");
+            if (ring_buf_put(data->rx_rbuf, &evt->data.rx.buf[evt->data.rx.offset], evt->data.rx.len) == 0) {
+                LOG_WRN("%s: 1 Failed to put message in RX queue (full?).", data->dev->name);
             }
-            data->rx_buf_pos++;
-            if(data->rx_buf_pos > HMI_UART_RX_MSG_SIZE - 2)
-            {
-                data->rx_buf[data->rx_buf_pos] = '\0'; 
-                if (ring_buf_put(data->rx_rbuf, data->rx_buf, data->rx_buf_pos) == 0) {
-                    LOG_WRN("%s: 1 Failed to put message in RX queue (full?).", data->dev->name);
-                }
-                data->rx_buf_pos = 0;
-            }
+            data->rx_buf_pos = 0;
             break;
         }
         case UART_RX_STOPPED: {
@@ -60,7 +41,7 @@ static void hmi_uart_callback_internal(const struct device *dev, struct uart_eve
             break;
         case UART_RX_DISABLED:
         {
-            int ret = uart_rx_enable(dev, data->rx_buf + data->rx_buf_pos, 1, SYS_FOREVER_US);
+            int ret = uart_rx_enable(dev, data->rx_buf, HMI_UART_RX_MSG_SIZE, 100);
             if (ret) {
                 LOG_ERR("啟用 UART %s 接收失敗: %d", dev->name, ret);
             }
@@ -123,7 +104,7 @@ int hmi_uart_init_instance(struct hmi_uart_data *instance_data, uint32_t baud_ra
     }
 
     // 啟用接收，使用實例的接收緩衝區
-    ret = uart_rx_enable(uart_dev, instance_data->rx_buf, 1, SYS_FOREVER_US);
+    ret = uart_rx_enable(uart_dev, instance_data->rx_buf, HMI_UART_RX_MSG_SIZE, 100);
     if (ret) {
         LOG_ERR("啟用 UART %s 接收失敗: %d", uart_dev->name, ret);
         return ret;

@@ -17,7 +17,7 @@ RING_BUF_DECLARE(uart_at_ringbuf, 1024);
 struct hmi_uart_data at_cmd_uart_instance_data = {.dev = DEVICE_DT_GET(AT_CMD_UART), .rx_rbuf = &uart_at_ringbuf};
 K_MUTEX_DEFINE(cat_mutex);
 
-// --- 全局變數定義 (與之前相同) ---
+// --- 全局變數定義 ---
 static char g_manufacture_id[32] = "MyCompany";
 static char g_model_id[32] = "AT_Parser_Demo";
 static char g_revision[32] = "v1.0.0";
@@ -26,7 +26,7 @@ static char g_hardware_revision[32] = "HW_A1";
 static uint8_t g_sysreg_rw = 0;
 static uint32_t g_sysreg_reg = 0;
 static uint32_t g_sysreg_value = 0;
-static uint8_t g_sysreg_interval = 0;
+static uint32_t g_sysreg_interval = 0;
 static char g_mqtt_client_id[64] = "cat_parser_client";
 static uint16_t g_mqtt_keep_alive = 60;
 static uint8_t g_mqtt_clean_session = 0;
@@ -92,12 +92,11 @@ static struct cat_command g_cmds[] = {
         .var_num = sizeof(g_mqtt_vars) / sizeof(g_mqtt_vars[0]),
     },
     { .name = "#HELP", .description = "Prints a list of all available commands.", .run = cmd_help_run },
-    { .name = "#QUIT", .description = "Exits the program.", .run = cmd_quit_run },
 };
 
 // --- Zephyr I/O 介面實現 ---
 static int write_char(char ch) {
-    //LOG_INF("Sent: %c\n",(ch));
+    LOG_DBG("Sent: %c\n",(ch));
     hmi_uart_send(at_cmd_uart_instance_data.dev, &ch, 1);
     return 1;
 }
@@ -107,7 +106,9 @@ static int read_char(char *ch) {
     ret = ring_buf_get(&uart_at_ringbuf, ch, 1);
     if(ret != 0)
     {
-        LOG_INF("Get: %u\n",(uint8_t)(*ch));
+        LOG_INF("Get: %c\n",(uint8_t)(*ch));
+        //LOG_INF("head:%d,tail:%d,base:%d\n",uart_at_ringbuf.get_head,uart_at_ringbuf.get_tail,uart_at_ringbuf.get_base);
+        
         return 1;
     }
     return 0;
