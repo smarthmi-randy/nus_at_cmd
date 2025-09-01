@@ -35,7 +35,6 @@ static char g_working_buffer[256];
 static bool g_quit_flag = false;
 
 // --- 命令處理函式宣告 ---
-static cat_return_state cmd_quit_run(const struct cat_command *cmd);
 static cat_return_state cmd_help_run(const struct cat_command *cmd);
 static cat_return_state cmd_cgmi_run(const struct cat_command *cmd);
 static cat_return_state cmd_cgmi_test(const struct cat_command *cmd, uint8_t *data, size_t *data_size, const size_t max_data_size);
@@ -106,7 +105,7 @@ static int read_char(char *ch) {
     ret = ring_buf_get(&uart_at_ringbuf, ch, 1);
     if(ret != 0)
     {
-        LOG_INF("Get: %c\n",(uint8_t)(*ch));
+        LOG_DBG("Get: %c\n",(uint8_t)(*ch));
         //LOG_INF("head:%d,tail:%d,base:%d\n",uart_at_ringbuf.get_head,uart_at_ringbuf.get_tail,uart_at_ringbuf.get_base);
         
         return 1;
@@ -132,13 +131,6 @@ static struct cat_mutex_interface g_mutex = {
     .lock = mutex_lock,
     .unlock = mutex_unlock
 };
-
-// --- 命令處理函式實作 ---
-static cat_return_state cmd_quit_run(const struct cat_command *cmd) {
-    LOG_INF("QUIT command received. Exiting thread.");
-    g_quit_flag = true;
-    return CAT_RETURN_STATE_OK;
-}
 
 static cat_return_state cmd_help_run(const struct cat_command *cmd) {
     LOG_INF("Execute Help");

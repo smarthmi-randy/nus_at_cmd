@@ -22,10 +22,11 @@ static void hmi_uart_callback_internal(const struct device *dev, struct uart_eve
     switch (evt->type) {
         case UART_RX_RDY: {
             LOG_HEXDUMP_DBG(&evt->data.rx.buf[evt->data.rx.offset], evt->data.rx.len, "Put:");
-            if (ring_buf_put(data->rx_rbuf, &evt->data.rx.buf[evt->data.rx.offset], evt->data.rx.len) == 0) {
+            if (ring_buf_put(data->rx_rbuf
+                , &evt->data.rx.buf[evt->data.rx.offset]
+                , evt->data.rx.len) == 0) {
                 LOG_WRN("%s: 1 Failed to put message in RX queue (full?).", data->dev->name);
             }
-            data->rx_buf_pos = 0;
             break;
         }
         case UART_RX_STOPPED: {
@@ -33,15 +34,31 @@ static void hmi_uart_callback_internal(const struct device *dev, struct uart_eve
             break;
         }
         case UART_RX_BUF_REQUEST:
-            // 驅動通常會自動請求下一個緩衝區，無需手動處理
+        {
+            if(data->rx_buf_idx == 0)
+            {
+                data->rx_buf_idx = 1;
+            }else
+            {
+                data->rx_buf_idx = 0;
+            }
+            uart_rx_buf_rsp(dev, data->rx_buf[data->rx_buf_idx], HMI_UART_RX_MSG_SIZE);
             break;
-
+        }
         case UART_RX_BUF_RELEASED:
             // 緩衝區釋放事件，用於資源管理
             break;
         case UART_RX_DISABLED:
         {
-            int ret = uart_rx_enable(dev, data->rx_buf, HMI_UART_RX_MSG_SIZE, 100);
+            int ret = 0;
+            if(data->rx_buf_idx == 0)
+            {
+                data->rx_buf_idx = 1;
+            }else
+            {
+                data->rx_buf_idx = 0;
+            }
+            ret = uart_rx_enable(dev, data->rx_buf[data->rx_buf_idx], HMI_UART_RX_MSG_SIZE, 100);
             if (ret) {
                 LOG_ERR("啟用 UART %s 接收失敗: %d", dev->name, ret);
             }
@@ -51,7 +68,7 @@ static void hmi_uart_callback_internal(const struct device *dev, struct uart_eve
         case UART_TX_DONE:
             // 傳輸完成事件。如果需要，可以在此處理 TX 完成的邏輯
             // 例如，釋放 TX 緩衝區或通知等待的線程
-            LOG_INF("%s: UART_TX_DONE", dev->name);
+            LOG_DBG("%s: UART_TX_DONE", dev->name);
             break;
 
         case UART_TX_ABORTED:
@@ -104,7 +121,7 @@ int hmi_uart_init_instance(struct hmi_uart_data *instance_data, uint32_t baud_ra
     }
 
     // 啟用接收，使用實例的接收緩衝區
-    ret = uart_rx_enable(uart_dev, instance_data->rx_buf, HMI_UART_RX_MSG_SIZE, 100);
+    ret = uart_rx_enable(uart_dev, instance_data->rx_buf[0], HMI_UART_RX_MSG_SIZE, 100);
     if (ret) {
         LOG_ERR("啟用 UART %s 接收失敗: %d", uart_dev->name, ret);
         return ret;

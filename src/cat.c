@@ -36,7 +36,7 @@ SOFTWARE.
 #define CAT_WRITE_STATE_MAIN_BUFFER (1U)
 #define CAT_WRITE_STATE_AFTER (2U)
 
-LOG_MODULE_REGISTER(cat_module, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(cat_module, LOG_LEVEL_INF);
 
 static inline char* get_atcmd_buf(struct cat_object *self)
 {
