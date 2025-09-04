@@ -7,10 +7,12 @@
 #include <zephyr/kernel.h>
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/services/nus.h>
+#include <zephyr/sys/ring_buffer.h>
 
 #define DEVICE_NAME		CONFIG_BT_DEVICE_NAME
 #define DEVICE_NAME_LEN		(sizeof(DEVICE_NAME) - 1)
 
+extern struct ring_buf uart_at_ringbuf;
 static const struct bt_data ad[] = {
 	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
 	BT_DATA(BT_DATA_NAME_COMPLETE, DEVICE_NAME, DEVICE_NAME_LEN),
@@ -35,6 +37,11 @@ static void received(struct bt_conn *conn, const void *data, uint16_t len, void 
 	ARG_UNUSED(ctx);
 
 	memcpy(message, data, MIN(sizeof(message) - 1, len));
+	if (ring_buf_put(&uart_at_ringbuf
+                , data
+                , len) == 0) {
+                printk("BT: Failed to put message in RX queue (full?).");
+            }
 	printk("%s() - Len: %d, Message: %s\n", __func__, len, message);
 }
 
@@ -70,16 +77,7 @@ int main(void)
 	printk("Initialization complete\n");
 
 	while (true) {
-		const char *hello_world = "Hello World!\n";
-
-		k_sleep(K_SECONDS(3));
-
-		err = bt_nus_send(NULL, hello_world, strlen(hello_world));
-		printk("Data send - Result: %d\n", err);
-
-		if (err < 0 && (err != -EAGAIN) && (err != -ENOTCONN)) {
-			return err;
-		}
+		k_sleep(K_SECONDS(1));
 	}
 
 	return 0;
