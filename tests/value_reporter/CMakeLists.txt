@@ -6,5 +6,4 @@ target_include_directories(app PRIVATE ../../src)
 
 # 將我們的測試程式碼檔案加入到 ztest 目標中
 target_sources(app PRIVATE 
-../../src/value_reporter.c
 src/test_value_reporter.c)

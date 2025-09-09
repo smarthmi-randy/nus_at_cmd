@@ -1,12 +1,14 @@
 #ifndef VALUE_REPORTER_H__
 #define VALUE_REPORTER_H__
 #include <stdint.h>
+#include <zephyr/logging/log.h>
 
 #define TOTAL_SENSOR_ID 3
 #define TOTAL_REG_NUM   21
 #define PERIOD_DISABLE_REPORT (0x00000000)
 #define PERIOD_NOT_VALIDE (0xFFFFFFFF)
-
+#define MAX_REPORT_LEN  (26U)
+#define MAX_PERIOD  (9999)
 enum ATM90E26_ENG_REGSTERS {
     APENG = 0x40,
     ANENG = 0x41,
