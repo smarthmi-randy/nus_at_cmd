@@ -98,3 +98,55 @@ ZTEST(make_report_suite, test_period_out_of_bound)
     ret = value_reporter_make_report(msg_buff, sizeof(msg_buff), 2, 0x4E, 0x32ED, 5000);
     zassert_equal(ret, 0);
 }
+
+ZTEST_SUITE(check_reg_need_report_suite, NULL, NULL, NULL, NULL, NULL);
+
+ZTEST(check_reg_need_report_suite, test_return_value)
+{
+    bool result = false;
+    uint8_t sensor_id = 0;
+    uint8_t reg_addr = QMEAN;
+    uint32_t period = 100;
+    uint32_t last_tick = 1000;
+    value_reporter_set_report_period(sensor_id, reg_addr, period);
+    result = value_reporter_check_reg_need_report(sensor_id, reg_addr, last_tick, last_tick + period);
+    zassert_equal(result, true);
+
+    value_reporter_set_report_period(sensor_id, reg_addr, period);
+    result = value_reporter_check_reg_need_report(sensor_id, reg_addr, last_tick, last_tick + period -1);
+    zassert_equal(result, false);
+
+    last_tick = 0xffffffff;
+    value_reporter_set_report_period(sensor_id, reg_addr, period);
+    result = value_reporter_check_reg_need_report(sensor_id, reg_addr, last_tick, period - 2);
+    zassert_equal(result, false);
+
+    last_tick = 0xffffffff;
+    value_reporter_set_report_period(sensor_id, reg_addr, period);
+    result = value_reporter_check_reg_need_report(sensor_id, reg_addr, last_tick, period - 1);
+    zassert_equal(result, true);
+}
+
+ZTEST(check_reg_need_report_suite, test_sensor_id_boundry_value)
+{
+    bool result = false;
+    uint8_t sensor_id = TOTAL_SENSOR_ID;
+    uint8_t reg_addr = QMEAN;
+    uint32_t period = 100;
+    uint32_t last_tick = 1000;
+
+    value_reporter_set_report_period(sensor_id, reg_addr, period);
+    result = value_reporter_check_reg_need_report(sensor_id, reg_addr, last_tick, period);
+    zassert_equal(result, false);
+
+    sensor_id = -1;
+    value_reporter_set_report_period(sensor_id, reg_addr, period);
+    result = value_reporter_check_reg_need_report(sensor_id, reg_addr, last_tick, period);
+    zassert_equal(result, false);
+
+    reg_addr = 0x47;
+    sensor_id = 0;
+    value_reporter_set_report_period(sensor_id, reg_addr, period);
+    result = value_reporter_check_reg_need_report(sensor_id, reg_addr, last_tick, period);
+    zassert_equal(result, false);
+}

@@ -9,6 +9,7 @@ uint32_t report_periods[TOTAL_SENSOR_ID][TOTAL_REG_NUM];
 
 static int value_reporter_make_report(char *buff, size_t buff_size, uint8_t sensorId, uint8_t reg, uint16_t val, uint32_t period);
 static int atm90e26_get_register_index(enum ATM90E26_ENG_REGSTERS reg);
+static bool value_reporter_check_reg_need_report(uint8_t sensor_id, uint8_t reg, uint32_t last_tick, uint32_t current_tick);
 
 static int atm90e26_get_register_index(enum ATM90E26_ENG_REGSTERS reg) {
     switch (reg) {
@@ -33,7 +34,7 @@ static int atm90e26_get_register_index(enum ATM90E26_ENG_REGSTERS reg) {
         case POWERF2: return 18;
         case PANG2:   return 19;
         case SMEAN2:  return 20;
-        default:      return -1; // 代表錯誤或未知的位址
+        default:      return REG_NOT_VALIDE; // 代表錯誤或未知的位址
     }
 }
 
@@ -46,7 +47,7 @@ uint32_t value_reporter_set_report_period(uint8_t sensorId, uint8_t reg, uint32_
         return PERIOD_NOT_VALIDE;
     }
 
-    if(reg_index == -1)
+    if(reg_index == REG_NOT_VALIDE)
     {
         return PERIOD_NOT_VALIDE;
     }
@@ -58,7 +59,7 @@ uint32_t value_reporter_set_report_period(uint8_t sensorId, uint8_t reg, uint32_
 static int value_reporter_make_report(char *buff, size_t buff_size, uint8_t sensorId, uint8_t reg, uint16_t val, uint32_t period)
 {
     int ret = -1;
-    //+SYSREG:<r/w (r:0, w:1)>,<SendorID (0~2)>,<reg (hex)>,<value (hex)>,<interval (s)>
+    //+SYSREG:<r/w (r:0, w:1)>,<SensorID (0~2)>,<reg (hex)>,<value (hex)>,<interval (s)>
     //+SYSREG:1,2,4E,32ED,9999\n
     if((buff == NULL) || (buff_size < MAX_REPORT_LEN))
     {
@@ -80,4 +81,37 @@ static int value_reporter_make_report(char *buff, size_t buff_size, uint8_t sens
     }
 
     return 0;
+}
+
+static bool value_reporter_check_reg_need_report(uint8_t sensor_id, uint8_t reg, uint32_t last_tick, uint32_t current_tick)
+{
+    uint32_t period = 0;
+    int reg_idx = REG_NOT_VALIDE;
+
+    reg_idx = atm90e26_get_register_index(reg);
+
+    if(reg_idx == REG_NOT_VALIDE)
+    {
+        return false;
+    }
+
+    if(sensor_id >= TOTAL_SENSOR_ID || sensor_id < 0)
+    {
+        return false;
+    }
+
+    period = report_periods[sensor_id][atm90e26_get_register_index(reg)];
+
+    if(current_tick - last_tick >= period)
+    {
+        return true;
+    }else
+    {
+        return false;
+    }
+
+    return false;
+}
+
+static void value_reporter_thread(void *p1, void *p2, void *p3) {
 }
