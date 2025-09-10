@@ -6,6 +6,7 @@
 #include <zephyr/sys/ring_buffer.h>
 #include "hmi_uart.h"
 #include "cat.h"
+#include "value_reporter.h"
 
 LOG_MODULE_REGISTER(at_parser_app, LOG_LEVEL_INF);
 
@@ -25,6 +26,7 @@ static char g_serial_number[32] = "1234567890";
 static char g_hardware_revision[32] = "HW_A1";
 static uint8_t g_sysreg_rw = 0;
 static uint32_t g_sysreg_reg = 0;
+static uint32_t g_sysreg_sensor_id = 0;
 static uint32_t g_sysreg_value = 0;
 static uint32_t g_sysreg_interval = 0;
 static char g_mqtt_client_id[64] = "cat_parser_client";
@@ -55,7 +57,8 @@ static cat_return_state cmd_xmqttcfg_test(const struct cat_command *cmd, uint8_t
 // --- 命令變數描述符定義 ---
 static struct cat_variable g_sysreg_vars[] = {
     { .name = "r/w", .type = CAT_VAR_UINT_DEC, .data = &g_sysreg_rw, .data_size = sizeof(g_sysreg_rw), .access = CAT_VAR_ACCESS_READ_WRITE },
-    { .name = "reg", .type = CAT_VAR_UINT_DEC, .data = &g_sysreg_reg, .data_size = sizeof(g_sysreg_reg), .access = CAT_VAR_ACCESS_READ_WRITE },
+    { .name = "sensor_id", .type = CAT_VAR_UINT_DEC, .data = &g_sysreg_sensor_id, .data_size = sizeof(g_sysreg_sensor_id), .access = CAT_VAR_ACCESS_READ_WRITE },
+    { .name = "reg", .type = CAT_VAR_BUF_HEX, .data = &g_sysreg_reg, .data_size = sizeof(g_sysreg_reg), .access = CAT_VAR_ACCESS_READ_WRITE },
     { .name = "value", .type = CAT_VAR_UINT_DEC, .data = &g_sysreg_value, .data_size = sizeof(g_sysreg_value), .access = CAT_VAR_ACCESS_READ_WRITE },
     { .name = "interval", .type = CAT_VAR_UINT_DEC, .data = &g_sysreg_interval, .data_size = sizeof(g_sysreg_interval), .access = CAT_VAR_ACCESS_READ_WRITE },
 };
@@ -178,8 +181,15 @@ static cat_return_state cmd_cgmh_test(const struct cat_command *cmd, uint8_t *da
 }
 
 static cat_return_state cmd_sysreg_write(const struct cat_command *cmd, const uint8_t *data, const size_t data_size, const size_t args_num) {
-    // 變數已透過 cat 程式庫自動更新
-    printk("+SYSREG:%d,%u,%u,%u\n", g_sysreg_rw, g_sysreg_reg, g_sysreg_value, g_sysreg_interval);
+    uint32_t result = 0;
+
+    LOG_INF("+SYSREG:%d, %u, %02X,%u,%u\n", g_sysreg_rw, g_sysreg_sensor_id, g_sysreg_reg, g_sysreg_value, g_sysreg_interval);
+    result = value_reporter_set_report_period(g_sysreg_sensor_id, g_sysreg_reg, g_sysreg_interval);
+    if(result != g_sysreg_interval)
+    {
+        return CAT_RETURN_STATE_ERROR;
+    }
+
     return CAT_RETURN_STATE_OK;
 }
 static cat_return_state cmd_sysreg_test(const struct cat_command *cmd, uint8_t *data, size_t *data_size, const size_t max_data_size) {

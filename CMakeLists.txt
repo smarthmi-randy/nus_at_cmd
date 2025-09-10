@@ -7,4 +7,5 @@ target_sources(app PRIVATE
         src/at_command.c
         src/hmi_uart.c
         src/cat.c
+        src/value_reporter.c
 )
