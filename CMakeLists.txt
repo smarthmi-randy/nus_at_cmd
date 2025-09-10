@@ -8,4 +8,5 @@ target_sources(app PRIVATE
         src/hmi_uart.c
         src/cat.c
         src/value_reporter.c
+        src/sensor_handler.c
 )

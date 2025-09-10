@@ -2,6 +2,7 @@
 #define VALUE_REPORTER_H__
 #include <stdint.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/kernel.h>
 
 #define TOTAL_SENSOR_ID 3
 #define TOTAL_REG_NUM   21
@@ -35,5 +36,5 @@ enum ATM90E26_ENG_REGSTERS {
 };
 
 uint32_t value_reporter_set_report_period(uint8_t sensorId, uint8_t reg, uint32_t period);
-
+bool value_reporter_start(void);
 #endif // VALUE_REPORTER_H__

@@ -108,6 +108,7 @@ ZTEST(check_reg_need_report_suite, test_return_value)
     uint8_t reg_addr = QMEAN;
     uint32_t period = 100;
     uint32_t last_tick = 1000;
+    uint32_t current_tick = 0;
     value_reporter_set_report_period(sensor_id, reg_addr, period);
     result = value_reporter_check_reg_need_report(sensor_id, reg_addr, last_tick, last_tick + period);
     zassert_equal(result, true);
@@ -125,6 +126,13 @@ ZTEST(check_reg_need_report_suite, test_return_value)
     value_reporter_set_report_period(sensor_id, reg_addr, period);
     result = value_reporter_check_reg_need_report(sensor_id, reg_addr, last_tick, period - 1);
     zassert_equal(result, true);
+
+    last_tick = 0;
+    current_tick = 10;
+    period = 0;
+    value_reporter_set_report_period(sensor_id, reg_addr, period);
+    result = value_reporter_check_reg_need_report(sensor_id, reg_addr, last_tick, current_tick);
+    zassert_equal(result, false);
 }
 
 ZTEST(check_reg_need_report_suite, test_sensor_id_boundry_value)
