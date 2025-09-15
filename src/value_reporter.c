@@ -144,7 +144,12 @@ static void value_reporter_timer_handler(void *p1, void *p2, void *p3) {
 
             if(need_report)
             {
-                uint16_t reg_val = sensor_handler_get_reg_value(id, reg_idx);
+                uint16_t reg_val = 0;
+                int ret = sensor_handler_get_m90e26_reg_value(id, reg_idx, &reg_val);
+                if(ret != 0)
+                {
+                    LOG_ERR("Get sensor value error!");
+                }
                 uint32_t period = report_periods[id][reg_idx];
                 value_reporter_make_report(report_buff, MAX_REPORT_LEN, id, register_map[reg_idx], reg_val, period);
                 report_last_tick[id][reg_idx] = current_tick;
@@ -159,4 +164,5 @@ K_TIMER_DEFINE(value_reporter_timer, value_reporter_timer_handler, NULL);
 bool value_reporter_start(void)
 {
     k_timer_start(&value_reporter_timer, K_SECONDS(1), K_SECONDS(1));
+    return true;
 }

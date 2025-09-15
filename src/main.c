@@ -9,6 +9,7 @@
 #include <zephyr/bluetooth/services/nus.h>
 #include <zephyr/sys/ring_buffer.h>
 #include "value_reporter.h"
+#include "sensor_handler.h"
 
 #define DEVICE_NAME		CONFIG_BT_DEVICE_NAME
 #define DEVICE_NAME_LEN		(sizeof(DEVICE_NAME) - 1)
@@ -74,6 +75,7 @@ int main(void)
 		printk("Failed to start advertising: %d\n", err);
 		return err;
 	}
+	sensor_handler_init();
 	value_reporter_start();
 	printk("Initialization complete\n");
 

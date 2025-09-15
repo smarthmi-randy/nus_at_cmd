@@ -1,0 +1,5 @@
+config M90E26_UART_DRIVER
+    bool "Atmel M90E26 UART RTIO Driver"
+    default y
+    help
+      Enable the custom RTIO UART driver for the M90E26 sensor.
