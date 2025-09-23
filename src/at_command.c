@@ -232,7 +232,7 @@ static void at_parser_thread(void *p1, void *p2, void *p3) {
     };
 
     if (hmi_uart_init_instance(&at_cmd_uart_instance_data, 115200)) {
-        LOG_ERR("UART device not ready!");
+        LOG_ERR("AT CMD UART device not ready!");
         return;
     }
     

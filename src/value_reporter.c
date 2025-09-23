@@ -1,13 +1,19 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <zephyr/sys/ring_buffer.h>
+#include "hmi_uart.h"
 #include "value_reporter.h"
 #include "sensor_handler.h"
 
 LOG_MODULE_REGISTER(value_reporter, LOG_LEVEL_INF);
+#define IF_9151_UART DT_ALIAS(if9151uart)
 
 static uint32_t report_last_tick[TOTAL_SENSOR_ID][TOTAL_REG_NUM];
 static uint32_t report_periods[TOTAL_SENSOR_ID][TOTAL_REG_NUM];
+RING_BUF_DECLARE(if_9151_ringbuf, 1024);
+struct hmi_uart_data if_9151_uart_instance_data = {.dev = DEVICE_DT_GET(IF_9151_UART), .rx_rbuf=&if_9151_ringbuf};
+
 
 static int value_reporter_make_report(char *buff, size_t buff_size, uint8_t sensorId, uint8_t reg, uint16_t val, uint32_t period);
 static int atm90e26_get_register_index(enum ATM90E26_ENG_REGSTERS reg);
@@ -86,9 +92,9 @@ static int value_reporter_make_report(char *buff, size_t buff_size, uint8_t sens
     }
 
     ret = snprintf(buff, MAX_REPORT_LEN
-        , "+SYSREG:0,%01u,%02X,%04X,%04u\n"
+        , "+SYSREG:0,%01u,%02X,%04X,%04u\r\n"
         ,sensorId, reg, val, period);
-
+    LOG_INF("Make report: %d", ret);
     if(ret <= 0)
     {
         return -1;
@@ -130,11 +136,11 @@ static bool value_reporter_check_reg_need_report(uint8_t sensor_id, uint8_t reg,
 
     return false;
 }
-
+char report_buff[MAX_REPORT_LEN] = {0};
 static void value_reporter_timer_handler(void *p1, void *p2, void *p3) {
 
     static uint32_t current_tick = 0;
-    char report_buff[MAX_REPORT_LEN] = {0};
+    memset(report_buff, 0, MAX_REPORT_LEN);
     for(int id = 0; id < TOTAL_SENSOR_ID; id++)
     {
         for(int reg_idx = 0; reg_idx < TOTAL_REG_NUM; reg_idx++)
@@ -148,7 +154,8 @@ static void value_reporter_timer_handler(void *p1, void *p2, void *p3) {
                 uint32_t period = report_periods[id][reg_idx];
                 value_reporter_make_report(report_buff, MAX_REPORT_LEN, id, register_map[reg_idx], reg_val, period);
                 report_last_tick[id][reg_idx] = current_tick;
-                LOG_INF("Report: %s", report_buff);
+                LOG_INF("Report: %s, %u", report_buff, strlen(report_buff));
+                hmi_uart_send(if_9151_uart_instance_data.dev, report_buff, strlen(report_buff));
             }
         }
     }
@@ -158,5 +165,9 @@ K_TIMER_DEFINE(value_reporter_timer, value_reporter_timer_handler, NULL);
 
 bool value_reporter_start(void)
 {
+    if (hmi_uart_init_instance(&if_9151_uart_instance_data, 115200)) {
+        LOG_ERR("9151 UART device not ready!");
+        return;
+    }
     k_timer_start(&value_reporter_timer, K_SECONDS(1), K_SECONDS(1));
 }
